@@ -1,5 +1,5 @@
 {
-    "name": "danielbachhuber/wp-find-unused-themes-command",
+    "name": "runcommand/find-unused-themes",
     "description": "Find unused themes on a multisite network.",
     "license": "MIT",
     "authors": [],
@@ -10,5 +10,10 @@
     "require": {},
     "require-dev": {
         "behat/behat": "~2.5"
+    },
+    "extras": {
+        "commands": [
+            "find-unused-themes"
+        ]
     }
 }
