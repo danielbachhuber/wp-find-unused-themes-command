@@ -1,4 +1,4 @@
-find-unused-themes
+runcommand/find-unused-themes
 =============================
 
 Find unused themes on a multisite network.
@@ -21,7 +21,7 @@ on any site.
 
 ## Installing
 
-This package requires the latest nightly version of WP-CLI. Update with `wp cli update --nightly`.
+Installing this package requires WP-CLI v0.23.0 or greater. Update to the latest stable release with `wp cli update`.
 
 Once you've done so, you can install this package with `wp package install runcommand/find-unused-themes`
 
