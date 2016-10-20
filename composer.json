@@ -1,6 +1,7 @@
 {
     "name": "runcommand/find-unused-themes",
     "description": "Find unused themes on a multisite network.",
+    "type": "wp-cli-package",
     "homepage": "https://runcommand.io/wp/find-unused-themes/",
     "license": "MIT",
     "authors": [
