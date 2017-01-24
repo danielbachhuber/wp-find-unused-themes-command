@@ -16,7 +16,7 @@ Feature: Inspect WordPress multisite for unused themes
       """
     And STDOUT should contain:
       """
-      twentyfourteen
+      twentyfifteen
       """
 
     When I run `wp --url=example.com/foo theme enable p2`
@@ -29,7 +29,7 @@ Feature: Inspect WordPress multisite for unused themes
       """
     And STDOUT should contain:
       """
-      twentyfourteen
+      twentyfifteen
       """
 
 
