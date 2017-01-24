@@ -18,16 +18,19 @@ $find_unused_themes_command = function() {
 	$used = array();
 	foreach( $sites as $site ) {
 		WP_CLI::log( "Checking {$site->url} for unused themes..." );
-		$response = WP_CLI::launch_self( 'theme list', array(), array( 'url' => $site->url, 'format' => 'json' ), false, true );
-		$themes = json_decode( $response->stdout );
+		$themes = WP_CLI::runcommand( "--url={$site->url} theme list --format=json", array(
+			'return'  => true,
+			'parse'   => 'json',
+			'launch'  => true,
+		) );
 		foreach( $themes as $theme ) {
-			if ( 'no' == $theme->enabled && 'inactive' == $theme->status && ! in_array( $theme->name, $used ) ) {
-				$unused[ $theme->name ] = $theme;
+			if ( 'no' == $theme['enabled'] && 'inactive' == $theme['status'] && ! in_array( $theme['name'], $used ) ) {
+				$unused[ $theme['name'] ] = $theme;
 			} else {
-				if ( isset( $unused[ $theme->name ] ) ) {
-					unset( $unused[ $theme->name ] );
+				if ( isset( $unused[ $theme['name'] ] ) ) {
+					unset( $unused[ $theme['name'] ] );
 				}
-				$used[] = $theme->name;
+				$used[] = $theme['name'];
 			}
 		}
 	}
