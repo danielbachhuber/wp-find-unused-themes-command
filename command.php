@@ -1,5 +1,8 @@
 <?php
 
+use cli\progress\Bar;
+use function WP_CLI\Utils\{ format_items };
+
 if ( ! class_exists( 'WP_CLI' ) ) {
 	return;
 }
@@ -9,32 +12,97 @@ if ( ! class_exists( 'WP_CLI' ) ) {
  *
  * Iterates through all sites on a network to find themes which aren't enabled
  * on any site.
+ *
+ * ## OPTIONS
+ *
+ * [--verbose]
+ * : Shows the number of sites a theme is active on, and details about its parent/child themes.
+ *
+ * ## EXAMPLES
+ *
+ * wp find-unused-themes
+ * wp find-unused-themes --verbose
+ *
+ * @param array $args
+ * @param array $assoc_args
  */
-$find_unused_themes_command = function() {
+$find_unused_themes_command = function( $args, $assoc_args) {
+	$sites = get_sites( array( 'number' => false ) );
+	$broken_sites = array();
+	$all_themes = wp_get_themes( array(
+		'errors'  => null,
+		'allowed' => null,
+	) );
 
-	$response = WP_CLI::launch_self( 'site list', array(), array( 'format' => 'json' ), false, true );
-	$sites = json_decode( $response->stdout );
-	$unused = array();
-	$used = array();
-	foreach( $sites as $site ) {
-		WP_CLI::log( "Checking {$site->url} for unused themes..." );
-		$themes = WP_CLI::runcommand( "--url={$site->url} theme list --format=json", array(
-			'return'  => true,
-			'parse'   => 'json',
-			'launch'  => true,
-		) );
-		foreach( $themes as $theme ) {
-			if ( 'no' == $theme['enabled'] && 'inactive' == $theme['status'] && ! in_array( $theme['name'], $used ) ) {
-				$unused[ $theme['name'] ] = $theme;
+	foreach ( array_keys( $all_themes ) as $slug ) {
+		// Need slug as key for efficient access, and as value so `format_items()` can print it.
+		$themes_site_count[ $slug ] = array(
+			'slug'         => $slug,
+			'active sites' => 0,
+		);
+		$parent = $all_themes[ $slug ]->parent();
+		$themes_site_count[ $slug ]['parent'] = $parent ? $parent->get_stylesheet() : '';
+		$themes_site_count[ $slug ]['active children'] = empty( $themes_site_count[ $slug ]['parent'] ) ? 0 : '';
+	}
+
+	if ( count( $sites ) > 10000 ) {
+		WP_CLI::warning( "Large network detected, this could take awhile.\n" );
+	}
+
+	$notify = new Bar( 'Checking sites', count( $sites ) );
+
+	foreach ( $sites as $site ) {
+		switch_to_blog( $site->blog_id );
+
+		$current_theme = get_option( 'stylesheet' );
+		$parent        = $themes_site_count[ $current_theme ]['parent'];
+
+		if ( isset ( $all_themes[ $current_theme ] ) ) {
+			$themes_site_count[ $current_theme ]['active sites']++;
+		} else {
+			$broken_sites[] = array(
+				'id'     => get_current_blog_id(),
+				'url'    => site_url(),
+				'theme'  => $current_theme,
+				'parent' => $parent,
+			);
+		}
+
+		if ( ! empty( $parent ) ) {
+			if ( isset ( $all_themes[ $parent ] ) ) {
+				$themes_site_count[ $parent ]['active children']++;
 			} else {
-				if ( isset( $unused[ $theme['name'] ] ) ) {
-					unset( $unused[ $theme['name'] ] );
-				}
-				$used[] = $theme['name'];
+				$broken_sites[] = array(
+					'id'     => get_current_blog_id(),
+					'url'    => site_url(),
+					'theme'  => $current_theme,
+					'parent' => $parent,
+				);
 			}
 		}
+
+		restore_current_blog();
+		$notify->tick();
 	}
-	WP_CLI\Utils\format_items( 'table', $unused, array( 'name', 'version' ) );
+
+	$notify->finish();
+
+	if ( isset( $assoc_args['verbose'] ) ) {
+		WP_CLI::log( "\nAll themes installed on the network:\n" );
+		format_items( 'table', $themes_site_count, array( 'slug', 'parent', 'active sites', 'active children' ) );
+	} else {
+		$unused_themes = array_filter( $themes_site_count, function( $theme ) {
+			return $theme['active sites'] === 0 && empty( $theme['active children'] );
+		} );
+
+		WP_CLI::log( "\nInstalled themes that aren't active on any site, and don't have any active child themes:\n" );
+		format_items( 'table', $unused_themes, array( 'slug' ) );
+	}
+
+	if ( $broken_sites ) {
+		WP_CLI::warning( 'These sites have broken themes:' );
+		format_items( 'table', $broken_sites, array( 'id', 'url', 'theme', 'parent' ) );
+	}
 };
 WP_CLI::add_command( 'find-unused-themes', $find_unused_themes_command, array(
 	'before_invoke' => function(){
