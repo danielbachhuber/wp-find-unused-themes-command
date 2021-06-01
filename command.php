@@ -28,6 +28,7 @@ if ( ! class_exists( 'WP_CLI' ) ) {
  */
 $find_unused_themes_command = function( $args, $assoc_args) {
 	$sites = get_sites( array( 'number' => false ) );
+	$broken_sites = array();
 	$all_themes = wp_get_themes( array(
 		'errors'  => null,
 		'allowed' => null,
@@ -58,10 +59,26 @@ $find_unused_themes_command = function( $args, $assoc_args) {
 
 		if ( isset ( $all_themes[ $current_theme ] ) ) {
 			$themes_site_count[ $current_theme ]['active sites']++;
+		} else {
+			$broken_sites[] = array(
+				'id'     => get_current_blog_id(),
+				'url'    => site_url(),
+				'theme'  => $current_theme,
+				'parent' => $parent,
+			);
 		}
 
-		if ( ! empty( $parent ) && isset ( $all_themes[ $parent ] ) ) {
-			$themes_site_count[ $parent ]['active children']++;
+		if ( ! empty( $parent ) ) {
+			if ( isset ( $all_themes[ $parent ] ) ) {
+				$themes_site_count[ $parent ]['active children']++;
+			} else {
+				$broken_sites[] = array(
+					'id'     => get_current_blog_id(),
+					'url'    => site_url(),
+					'theme'  => $current_theme,
+					'parent' => $parent,
+				);
+			}
 		}
 
 		restore_current_blog();
@@ -80,6 +97,11 @@ $find_unused_themes_command = function( $args, $assoc_args) {
 
 		WP_CLI::log( "\nInstalled themes that aren't active on any site, and don't have any active child themes:\n" );
 		format_items( 'table', $unused_themes, array( 'slug' ) );
+	}
+
+	if ( $broken_sites ) {
+		WP_CLI::warning( 'These sites have broken themes:' );
+		format_items( 'table', $broken_sites, array( 'id', 'url', 'theme', 'parent' ) );
 	}
 };
 WP_CLI::add_command( 'find-unused-themes', $find_unused_themes_command, array(
